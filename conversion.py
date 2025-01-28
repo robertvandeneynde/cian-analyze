@@ -78,15 +78,15 @@ def get_metrocircle(name):
     if not openset:
         return '', ''
     else:
-        return metrodata.STATIONS[destination]['name'], destinationval
+        return metrodata.STATIONS[destination]['name'], destinationval / 60
     
 
 def onlyone(it):
     if len(L := list(it)) != 1:
         raise ValueError('No values' if len(L) == 0 else 'Too much values')
     return L[0]
-    
-wb = xl.load_workbook(onlyone(glob('offers*xlsx')))
+
+wb = xl.load_workbook(input_filename := onlyone(glob('offers*xlsx')))
 ws = wb.worksheets[0]
 headers = [x.value for x in list(ws.rows)[0]]
 METRO = 'Метро'
@@ -155,4 +155,5 @@ for i in range(1, len(list(ws.rows))):
     for j in range(ninsert):
         icell(i, col+j).value = computation[j]
 
-wb.save('hello-v1.xlsx')
+wb.save(output_filename := 'rich_offers_' + re.sub('^offers|[.]xlsx$', '', input_filename).strip() + '.xlsx')
+print("Saved:", output_filename)
