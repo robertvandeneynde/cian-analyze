@@ -138,9 +138,6 @@ def onlyone(it):
 
 wb = xl.load_workbook(input_filename := onlyone(glob('offers*xlsx')))
 ws = wb.worksheets[0]
-headers = [x.value for x in list(ws.rows)[0]]
-METRO = 'Метро'
-iMETRO = headers.index(METRO)
 
 def icell(i, j):
     return ws.cell(row=i+1, column=j+1)
@@ -148,86 +145,67 @@ def icell(i, j):
 def iinsertcols(i, *args, **kwargs):
     ws.insert_cols(1+i, *args, **kwargs)
 
-col = iMETRO
-iinsertcols(col)
-icell(0, col).value = "Metro (Foot)"
+def one_to_N(input_header, outcols, function):
+    headers = [x.value for x in list(ws.rows)[0]]
+    col = headers.index(input_header)
 
-for i in range(1, len(list(ws.rows))):
-    icell(i, col).value = get_minute_foot(icell(i, col+1).value)
+    ninsert = len(outcols)
+    for _ in range(ninsert):
+        iinsertcols(col)
+    for i in range(ninsert):
+        icell(0, col+i).value = outcols[i]
 
-col += 1
-iinsertcols(col)
-icell(0, col).value = "Metro (Location)"
+    for i in range(1, len(list(ws.rows))):
+        computation = function(icell(i, col+ninsert).value)
+        for j in range(ninsert):
+            icell(i, col+j).value = computation[j]
 
-for i in range(1, len(list(ws.rows))):
-    icell(i, col).value = get_metro_name(icell(i, col+1).value)
+def one_to_one(input_header, outcol, function):
+    from functools import partial
+    one_to_N(input_header, outcols=[outcol], function=lambda x: [function(x)])
 
-headers = [x.value for x in list(ws.rows)[0]]
-iSURFACE = headers.index("Площадь, м2")
+# metro (foot)
+one_to_one(
+    input_header="Метро",
+    outcol="Metro (Foot)",
+    function=get_minute_foot)
 
-col = iSURFACE
-iinsertcols(col)
-icell(0, col).value = "Surface (m²)"
+# metro (location)
+one_to_one(
+    input_header="Метро",
+    outcol="Metro (Location)",
+    function=get_metro_name)
 
-for i in range(1, len(list(ws.rows))):
-    icell(i, col).value = get_surface_main(icell(i, col+1).value)
+# surface
+one_to_one(
+    input_header="Площадь, м2",
+    outcol="Surface (m²)",
+    function=get_surface_main)
 
-headers = [x.value for x in list(ws.rows)[0]]
-col = headers.index("Цена")
+# price
+one_to_one(
+    input_header="Цена",
+    outcol="Price (rub)",
+    function=get_price)
 
-iinsertcols(col)
-icell(0, col).value = "Price (rub)"
-
-for i in range(1, len(list(ws.rows))):
-    icell(i, col).value = get_price(icell(i, col+1).value)
-
-headers = [x.value for x in list(ws.rows)[0]]
-col = headers.index("Metro (Location)")
-
-iinsertcols(col)
-icell(0, col).value = "Metro (Line)"
-
-for i in range(1, len(list(ws.rows))):
-    icell(i, col).value = get_metroline(icell(i, col+1).value)
+# metroline
+one_to_one(
+    input_header="Metro (Location)",
+    outcol="Metro (Line)",
+    function=get_metroline)
 
 # time to circle
-headers = [x.value for x in list(ws.rows)[0]]
-col = headers.index("Metro (Location)")
-
-outcols = ["Metro (Circle destination)", "Metro (Circle time)"]
-ninsert = len(outcols)
-for _ in range(ninsert):
-    iinsertcols(col)
-for i in range(ninsert):
-    icell(0, col+i).value = outcols[i]
-
-for i in range(1, len(list(ws.rows))):
-    computation = get_metrocircle(icell(i, col+ninsert).value)
-    for j in range(ninsert):
-        icell(i, col+j).value = computation[j]
+one_to_N(
+    input_header="Metro (Location)",
+    outcols=["Metro (Circle destination)", "Metro (Circle time)"],
+    function=get_metrocircle) 
 
 # targets
-from functools import partial
-input_header = "Metro (Location)"
-outcols = ["Baumanska (Time)", "Aeroport (Time)"]
-targets = ["Бауманская", "Аэропорт"]
-function = partial(get_target_station_time, targets=targets)
-
-# function
-headers = [x.value for x in list(ws.rows)[0]]
-col = headers.index(input_header)
-
-outcols = outcols
-ninsert = len(outcols)
-for _ in range(ninsert):
-    iinsertcols(col)
-for i in range(ninsert):
-    icell(0, col+i).value = outcols[i]
-
-for i in range(1, len(list(ws.rows))):
-    computation = function(icell(i, col+ninsert).value)
-    for j in range(ninsert):
-        icell(i, col+j).value = computation[j]
+from functools import partial 
+one_to_N(
+    input_header="Metro (Location)",
+    outcols=["Baumanska (Time)", "Aeroport (Time)"],
+    function=partial(get_target_station_time, targets=["Бауманская", "Аэропорт"]))
 
 wb.save(output_filename := 'rich_offers_v2_' + re.sub('^offers|[.]xlsx$', '', input_filename).strip() + '.xlsx')
 print("Saved:", output_filename)
