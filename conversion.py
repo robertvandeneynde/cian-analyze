@@ -79,6 +79,56 @@ def get_metrocircle(name):
         return '', ''
     else:
         return metrodata.STATIONS[destination]['name'], destinationval / 60
+
+
+def get_target_station_time(name, targets:list[str]):
+    import metrodata
+
+    def get_stationid(name):
+        try:
+            return onlyone((y, x) for y,x in metrodata.STATIONS.items() if x['name'] == name)[0]
+        except ValueError:
+            return None
+
+    stationid = get_stationid(name)
+    if stationid is None:
+        return ('', ) * len(targets)
+
+    targets_id = set(map(get_stationid, targets))
+    if any(map(lambda x:x is None, targets_id)):
+        return ('', ) * len(targets)
+
+    # dijkstra baby
+    openset = dict()
+    prev = dict()
+    closedset = dict()
+    openset[stationid] = 0    
+    while openset:
+        current = next(iter(openset))
+        currentval = openset[current]
+
+        del openset[current]
+        closedset[current] = currentval
+
+        if targets_id <= closedset.keys():
+            break
+
+        neighs = (
+            [(y, d) for x,y,d in metrodata.LINKS if x == current] +
+            [(x, d) for x,y,d in metrodata.LINKS if y == current])
+
+        for o, d in neighs:
+            if o in closedset:
+                pass
+            elif o not in openset or currentval + d < openset[o]:
+                openset[o] = currentval + d
+                prev[o] = current
+                continue
+        
+    if not openset:
+        return ('', ) * len(targets)
+    else:
+        return list(map(lambda target_id: closedset[target_id] / 60, targets_id))
     
 
 def onlyone(it):
@@ -140,6 +190,7 @@ icell(0, col).value = "Metro (Line)"
 for i in range(1, len(list(ws.rows))):
     icell(i, col).value = get_metroline(icell(i, col+1).value)
 
+# time to circle
 headers = [x.value for x in list(ws.rows)[0]]
 col = headers.index("Metro (Location)")
 
@@ -155,5 +206,28 @@ for i in range(1, len(list(ws.rows))):
     for j in range(ninsert):
         icell(i, col+j).value = computation[j]
 
-wb.save(output_filename := 'rich_offers_' + re.sub('^offers|[.]xlsx$', '', input_filename).strip() + '.xlsx')
+# targets
+from functools import partial
+input_header = "Metro (Location)"
+outcols = ["Baumanska (Time)", "Aeroport (Time)"]
+targets = ["Бауманская", "Аэропорт"]
+function = partial(get_target_station_time, targets=targets)
+
+# function
+headers = [x.value for x in list(ws.rows)[0]]
+col = headers.index(input_header)
+
+outcols = outcols
+ninsert = len(outcols)
+for _ in range(ninsert):
+    iinsertcols(col)
+for i in range(ninsert):
+    icell(0, col+i).value = outcols[i]
+
+for i in range(1, len(list(ws.rows))):
+    computation = function(icell(i, col+ninsert).value)
+    for j in range(ninsert):
+        icell(i, col+j).value = computation[j]
+
+wb.save(output_filename := 'rich_offers_v2_' + re.sub('^offers|[.]xlsx$', '', input_filename).strip() + '.xlsx')
 print("Saved:", output_filename)
