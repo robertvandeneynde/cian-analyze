@@ -52,8 +52,7 @@ def get_metrocircle(name):
     closedset = set()
     openset[stationid] = 0    
     while openset:
-        current = next(iter(openset))
-        currentval = openset[current]
+        current, currentval = min(openset.items(), key=lambda x:x[1])
 
         if metrodata.STATIONS[current]['line'] == CIRCLE:
             destination = current
@@ -94,8 +93,9 @@ def get_target_station_time(name, targets:list[str]):
     if stationid is None:
         return ('', ) * len(targets)
 
-    targets_id = set(map(get_stationid, targets))
-    if any(map(lambda x:x is None, targets_id)):
+    targets_id_list = list(map(get_stationid, targets))
+    targets_id_set = set(targets_id_list)
+    if None in targets_id_set:
         return ('', ) * len(targets)
 
     # dijkstra baby
@@ -104,13 +104,12 @@ def get_target_station_time(name, targets:list[str]):
     closedset = dict()
     openset[stationid] = 0    
     while openset:
-        current = next(iter(openset))
-        currentval = openset[current]
+        current, currentval = min(openset.items(), key=lambda x:x[1])
 
         del openset[current]
         closedset[current] = currentval
 
-        if targets_id <= closedset.keys():
+        if targets_id_set <= closedset.keys():
             break
 
         neighs = (
@@ -125,10 +124,20 @@ def get_target_station_time(name, targets:list[str]):
                 prev[o] = current
                 continue
         
-    if not openset:
+    def reconstruct_path(x_station_id):
+        x = x_station_id
+        L = [x]
+        while x in prev:
+            L.append(x := prev[x])
+        return list(reversed(L))
+
+    def map_station_name(L):
+        return [metrodata.STATIONS[id]['name'] for id in L]
+
+    if not targets_id_set <= closedset.keys():
         return ('', ) * len(targets)
     else:
-        return list(map(lambda target_id: closedset[target_id] / 60, targets_id))
+        return list(map(lambda target_id: closedset[target_id] / 60, targets_id_list))
     
 
 def onlyone(it):
@@ -207,5 +216,5 @@ one_to_N(
     outcols=["Baumanska (Time)", "Aeroport (Time)"],
     function=partial(get_target_station_time, targets=["Бауманская", "Аэропорт"]))
 
-wb.save(output_filename := 'rich_offers_v2_' + re.sub('^offers|[.]xlsx$', '', input_filename).strip() + '.xlsx')
+wb.save(output_filename := 'rich_offers_v3_' + re.sub('^offers|[.]xlsx$', '', input_filename).strip() + '.xlsx')
 print("Saved:", output_filename)
