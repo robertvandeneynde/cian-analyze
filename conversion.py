@@ -33,16 +33,16 @@ def get_metroline(name):
     import metrodata
     CIRCLE_LINE = 5
     try:
-        return onlyone((y, x) for y,x in metrodata.STATIONS.items() if x['name'] == name)[1]['line']
-    except ValueError:
+        return next(iter(((y, x) for y,x in metrodata.STATIONS.items() if x['name'] == name)))[1]['line']
+    except StopIteration:
         return name
 
 
 def get_metrocircle(name):
     import metrodata
     try:
-        stationid = onlyone((y, x) for y,x in metrodata.STATIONS.items() if x['name'] == name)[0]
-    except ValueError:
+        stationid = next(iter(((y, x) for y,x in metrodata.STATIONS.items() if x['name'] == name)))[0]
+    except StopIteration:
         return '', ''
 
     CIRCLE = 5
@@ -85,8 +85,8 @@ def get_target_station_time(name, targets:list[str]):
 
     def get_stationid(name):
         try:
-            return onlyone((y, x) for y,x in metrodata.STATIONS.items() if x['name'] == name)[0]
-        except ValueError:
+            return next(iter((y, x) for y,x in metrodata.STATIONS.items() if x['name'] == name))[0]
+        except StopIteration:
             return None
 
     stationid = get_stationid(name)
@@ -216,5 +216,5 @@ one_to_N(
     outcols=["Baumanska (Time)", "Aeroport (Time)"],
     function=partial(get_target_station_time, targets=["Бауманская", "Аэропорт"]))
 
-wb.save(output_filename := 'rich_offers_v3_' + re.sub('^offers|[.]xlsx$', '', input_filename).strip() + '.xlsx')
+wb.save(output_filename := 'rich_offers_v4_' + re.sub('^offers|[.]xlsx$', '', input_filename).strip() + '.xlsx')
 print("Saved:", output_filename)
