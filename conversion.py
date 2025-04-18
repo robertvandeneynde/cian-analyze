@@ -2,7 +2,12 @@ import openpyxl as xl
 from glob import glob
 import re
 
+class CarAccessible(ValueError):
+    pass
+
 def get_minute_foot(x):
+    if re.compile(r'(\d+) мин на машине').search(x):
+        raise CarAccessible
     try:
       return int(re.compile(r'(\d+) мин пешком').search(x).group(1))
     except AttributeError:
@@ -12,6 +17,8 @@ def get_minute_foot(x):
 
 
 def get_metro_name(x):
+    if re.compile(r'(\d+) мин на машине').search(x):
+        raise CarAccessible
     try:
       return str(re.compile(r'м[.] (.*) [(]\d+ мин пешком[)]').fullmatch(x).group(1))
     except (AttributeError, TypeError):
@@ -164,10 +171,17 @@ def one_to_N(input_header, outcols, function):
     for i in range(ninsert):
         icell(0, col+i).value = outcols[i]
 
+    to_delete = []
     for i in range(1, len(list(ws.rows))):
-        computation = function(icell(i, col+ninsert).value)
-        for j in range(ninsert):
-            icell(i, col+j).value = computation[j]
+        try:
+            computation = function(icell(i, col+ninsert).value)
+            for j in range(ninsert):
+                icell(i, col+j).value = computation[j]
+        except CarAccessible:
+            to_delete.append(i)
+    
+    for i in reversed(to_delete):
+        ws.delete_rows(i)
 
 def one_to_one(input_header, outcol, function):
     from functools import partial
@@ -216,5 +230,5 @@ one_to_N(
     outcols=["Baumanska (Time)", "Aeroport (Time)"],
     function=partial(get_target_station_time, targets=["Бауманская", "Аэропорт"]))
 
-wb.save(output_filename := 'rich_offers_v4_' + re.sub('^offers|[.]xlsx$', '', input_filename).strip() + '.xlsx')
+wb.save(output_filename := 'rich_offers_v5_' + re.sub('^offers|[.]xlsx$', '', input_filename).strip() + '.xlsx')
 print("Saved:", output_filename)
